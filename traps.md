@@ -59,3 +59,9 @@ signal: The obvious "store system"/"catalog" page is titled like the data direct
 reality: It can be a product filter or marketing page; the real data hides behind a delivery/address selector, a secondary nav item, or the footer.
 action: Don't trust the page title. Dump every `<a>` (href+text), plan to interact with selectors/dropdowns/map pins.
 evidence: WinMart real directory behind "Giao Hàng" selector, 2026-07.
+
+### cloudrity-waf-burst-reset
+signal: Rapid back-to-back requests (no delay) to a site start failing mid-sweep with `ConnectionResetError`/`RemoteDisconnected`/`SSLEOFError`, after ~10 consecutive requests worked fine.
+reality: `Server: Cloudrity` (a VN CDN/WAF) throttles bursty traffic per-connection — not an auth wall, not the endpoint breaking. Retried pages succeed.
+action: Add a ~1s delay between requests when harvesting more than a handful of pages from a `Server: Cloudrity` site; don't mistake the reset for a dead endpoint or a session requirement.
+evidence: moit.gov.vn `Content.Listing` redraw endpoint, 2026-07-11.

@@ -60,8 +60,20 @@ reality: It can be a product filter or marketing page; the real data hides behin
 action: Don't trust the page title. Dump every `<a>` (href+text), plan to interact with selectors/dropdowns/map pins.
 evidence: WinMart real directory behind "Giao Hàng" selector, 2026-07.
 
+### unclosed-tag-swallows-rows
+signal: A regex like `<tr class="row">(.*?)</tr>` matches far fewer rows than the page visibly shows (e.g. 1 "row" instead of 24), or one match is suspiciously huge.
+reality: Some CMSes emit HTML with unclosed per-row tags (no literal `</tr>` before the next `<tr>`) — browsers auto-close it, but a non-greedy regex expecting the closing tag skips past every intermediate row hunting for the first real `</tr>`, which may be the wrapping table's, swallowing the whole page into one match.
+action: Split on the opening marker (`html.split('<tr class="row">')[1:]`) instead of matching an opening+closing pair. Verify row count against the page's own visible count (e.g. the declared `itemsPerPage`) before trusting the parse.
+evidence: moit.gov.vn `Content.Listing` redraw fragment — `<tr class="content-table">` never closed, 2026-07-11.
+
 ### cloudrity-waf-burst-reset
 signal: Rapid back-to-back requests (no delay) to a site start failing mid-sweep with `ConnectionResetError`/`RemoteDisconnected`/`SSLEOFError`, after ~10 consecutive requests worked fine.
 reality: `Server: Cloudrity` (a VN CDN/WAF) throttles bursty traffic per-connection — not an auth wall, not the endpoint breaking. Retried pages succeed.
 action: Add a ~1s delay between requests when harvesting more than a handful of pages from a `Server: Cloudrity` site; don't mistake the reset for a dead endpoint or a session requirement.
 evidence: moit.gov.vn `Content.Listing` redraw endpoint, 2026-07-11.
+
+### clamped-last-page
+signal: A paginated listing's `?page=N` param, requested far beyond the paginator's own declared last-page link, returns HTTP 200 with a full, non-empty page instead of erroring or emptying.
+reality: The server clamps out-of-range `page` values down to the last valid page and re-serves it verbatim — a loop-until-empty convergence check (the default assumption for partitioned pagination) never terminates against this shape.
+action: Read the true last page from the paginator's own last/`»` link (or bisect where `page=N` and `page=N+1` first return identical item sets) and loop by count, not by watching for an empty response.
+evidence: nganhhang.vn `/logistic/?page=52` (declared last) == `?page=53/55/60/100`, 2026-07-11.
